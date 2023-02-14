@@ -1,14 +1,14 @@
 {
-  "name": "odin-svelte",
-  "version": "1.0.0",
-  "description": "",
+  "name": "electron-svelte",
+  "version": "0.0.0",
+  "description": "Electron/Svelte Template",
+  "author": "horst.dehmer@syncpoint.io",
   "main": "dist/main.js",
   "scripts": {
     "webpack": "webpack",
     "hot": "webpack serve",
     "start": "electron . --static"
   },
-  "author": "horst.dehmer@syncpoint.io",
   "license": "ISC",
   "devDependencies": {
     "@babel/preset-env": "^7.20.2",
