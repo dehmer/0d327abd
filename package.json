@@ -2,6 +2,7 @@
   "name": "electron-svelte",
   "version": "0.0.0",
   "description": "Electron/Svelte Template",
+  "keywords": ["electron", "svelte", "babel",  "webpack",  "sass", "level"],
   "author": "horst.dehmer@syncpoint.io",
   "main": "dist/main.js",
   "scripts": {
