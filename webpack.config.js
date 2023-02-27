@@ -3,62 +3,13 @@ const { spawn } = require('child_process')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const CopyPlugin = require("copy-webpack-plugin")
 const webpack = require('webpack')
+const rules = require('./webpack.rules')
 
-const mode = env => env.production ? 'production' : 'development'
+const mode = process.env.NODE_ENV || 'development';
+const production = mode === 'production'
+const development = mode === 'development'
 
-const rules = (env) => [
-  {
-    test: /\.js$/,
-    exclude: /node_modules/,
-    use: ['babel-loader']
-  },
-
-  {
-    // css-loader: resolve/load required/imported CSS dependencies from JavaScript
-    // style-loader: wrap CSS string from css-loader with <style> tag
-    // Note: loaders are applied from right to left, i.e. css-loader -> style-loader
-    //
-    test: /\.(scss|css)$/,
-    use: ['style-loader', 'css-loader', 'sass-loader']
-  },
-
-  {
-    test: /\.(png|svg|jpe?g|gif)$/i,
-    use: [{
-      loader: 'file-loader',
-      options: {
-        name: 'img/[name].[ext]'
-      }
-    }]
-  },
-
-  {
-    test: /\.(eot|svg|ttf|woff|woff2)$/,
-    type: 'asset/resource'
-  },
-
-  {
-    test: /\.svelte$/,
-    use: {
-      loader: 'svelte-loader',
-      options: {
-        compilerOptions: { dev: mode(env) !== 'production' },
-        emitCss: mode(env) === 'production',
-        hotReload: mode(env) !== 'production'
-      }
-    }
-  },
-
-  {
-    // required to prevent errors from Svelte on Webpack 5+, omit on Webpack 4
-    test: /node_modules\/svelte\/.*\.mjs$/,
-    resolve: {
-      fullySpecified: false
-    }
-  }
-]
-
-const rendererConfig = (env, argv) => ({
+const renderer = {
   context: path.resolve(__dirname, 'src/renderer'),
   target: 'electron-renderer',
 
@@ -67,11 +18,10 @@ const rendererConfig = (env, argv) => ({
   // For advanced options: babel-minify-webpack-plugin:
   // https://webpack.js.org/plugins/babel-minify-webpack-plugin
 
-  mode: mode(env),
+  mode,
   stats: 'errors-only',
-  module: { rules: rules(env) },
+  module: { rules },
   entry: { renderer: ['./renderer.js'] },
-
   node: { global: true },
 
   resolve: {
@@ -79,7 +29,8 @@ const rendererConfig = (env, argv) => ({
 			svelte: path.dirname(require.resolve('svelte/package.json'))
 		},
 		extensions: ['.mjs', '.js', '.svelte'],
-		mainFields: ['svelte', 'browser', 'module', 'main']
+		mainFields: ['svelte', 'browser', 'module', 'main'],
+    conditionNames: ['svelte']
 	},
 
   plugins: [
@@ -93,60 +44,45 @@ const rendererConfig = (env, argv) => ({
       ]
     })
   ]
-})
+}
 
-const mainConfig = (env, argv) => ({
+const main = {
   context: path.resolve(__dirname, 'src/main'),
   target: 'electron-main',
-  mode: mode(env),
+  mode,
   stats: 'errors-only',
   entry: { main: './main.js' },
   plugins: [
     // NOTE: Required. Else "Error: No native build was found for ..."
     new webpack.ExternalsPlugin('commonjs', ['level'])
   ]
-})
+}
 
-const devServer = env => {
-  if (env.production) return ({}) // no development server for production
-  return ({
-    devServer: {
-      static: {
-        directory: path.resolve(__dirname, 'dist')
-      },
-      setupMiddlewares: (middlewares, devServer) => {
-        spawn(
-          'electron',
-          ['.'],
-          { shell: true, env: process.env, stdio: 'inherit' }
-        )
-          .on('close', code => process.exit(code))
-          .on('error', error => console.error(error))
+const server = {
+  devServer: {
+    static: {
+      directory: path.resolve(__dirname, 'dist')
+    },
+    setupMiddlewares: (middlewares, devServer) => {
+      spawn(
+        'electron',
+        ['.'],
+        { shell: true, env: process.env, stdio: 'inherit' }
+      )
+        .on('close', code => process.exit(code))
+        .on('error', error => console.error(error))
 
-        return middlewares
-      }
+      return middlewares
     }
-  })
+  }
 }
 
-const devtool = env => {
-  if (env.production) return ({}) // no source maps for production
-  return ({
-    devtool: 'cheap-source-map'
-  })
-}
-
-module.exports = (env, argv) => {
-  env = env || {}
-
-  // Merge development server and devtool to renderer configuration when necessary:
-  const renderer = Object.assign(
+module.exports = [
+  main,
+  Object.assign(
     {},
-    rendererConfig(env, argv),
-    devServer(env),
-    devtool(env)
+    renderer,
+    development ? server : {},
+    { devtool: production ? false : 'source-map' }
   )
-
-  const main = mainConfig(env, argv)
-  return [renderer, main]
-}
+]
