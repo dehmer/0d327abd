@@ -1,13 +1,73 @@
 const path = require('path')
 const { spawn } = require('child_process')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
-const CopyPlugin = require("copy-webpack-plugin")
+const HtmlWebpackPlugin = require('html-webpack-plugin')
 const webpack = require('webpack')
-const rules = require('./webpack.rules')
 
-const mode = process.env.NODE_ENV || 'development';
+const mode = process.env.NODE_ENV || 'development'
 const production = mode === 'production'
 const development = mode === 'development'
+
+const js = {
+  test: /\.js$/,
+  exclude: /node_modules/,
+  use: ['babel-loader']
+}
+
+const css = {
+  // css-loader: resolve/load required/imported CSS dependencies from JavaScript
+  // style-loader: wrap CSS string from css-loader with <style> tag
+  // Note: loaders are applied from right to left, i.e. css-loader -> style-loader
+  //
+  test: /\.(scss|css)$/,
+  use: [
+    production
+      ? MiniCssExtractPlugin.loader
+      : 'style-loader',
+    'css-loader',
+    'sass-loader'
+  ]
+}
+
+const image = {
+  test: /\.(png|svg|jpe?g|gif)$/i,
+  use: [{
+    loader: 'file-loader',
+    options: {
+      name: 'img/[name].[ext]'
+    }
+  }]
+}
+
+const font = {
+  test: /\.(eot|svg|ttf|woff|woff2)$/,
+  type: 'asset/resource'
+}
+
+const svelte = [
+  {
+    test: /\.svelte$/,
+    use: {
+      loader: 'svelte-loader',
+      options: {
+        compilerOptions: { dev: development },
+        emitCss: production,
+        hotReload: development
+      }
+    }
+  },
+
+  {
+    // required to prevent errors from Svelte on Webpack 5+, omit on Webpack 4
+    test: /node_modules\/svelte\/.*\.mjs$/,
+    resolve: {
+      fullySpecified: false
+    }
+  }
+]
+
+const rules = [js, css, image, font, ...svelte]
+
 
 const renderer = {
   context: path.resolve(__dirname, 'src/renderer'),
@@ -35,13 +95,19 @@ const renderer = {
 
   plugins: [
     new webpack.ExternalsPlugin('commonjs', ['level']),
-    new MiniCssExtractPlugin({ filename: '[name].css' }),
-    new CopyPlugin({
-      patterns: [
-        { from: "index.html" },
-        { from: "global.scss" },
-        { from: "favicon.png" }
-      ]
+
+    // Warning
+    // Source maps works only for source-map,
+    // nosources-source-map, hidden-nosources-source-map,
+    // hidden-source-map values because CSS only supports
+    // source maps with the sourceMappingURL comment
+    // (i.e. //# sourceMappingURL=style.css.map). If you need set
+    // devtool to another value you can enable source maps generation
+    // for extracted CSS using sourceMap: true for css-loader.
+    //
+    new MiniCssExtractPlugin(),
+    new HtmlWebpackPlugin({
+      title: 'Electron/Svelte Template'
     })
   ]
 }
@@ -83,6 +149,7 @@ module.exports = [
     {},
     renderer,
     development ? server : {},
+    // See restrictions on MiniCssExtractPlugin.
     { devtool: production ? false : 'source-map' }
   )
 ]
